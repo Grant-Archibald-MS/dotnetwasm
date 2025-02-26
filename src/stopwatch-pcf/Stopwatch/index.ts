@@ -1,6 +1,11 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
+import { initialize } from 'dynamic-import-polyfill';
+
+
 
 export class Stopwatch implements ComponentFramework.StandardControl<IInputs, IOutputs> {
+
+    private container: HTMLDivElement;
 
     /**
      * Empty constructor.
@@ -18,9 +23,78 @@ export class Stopwatch implements ComponentFramework.StandardControl<IInputs, IO
      * @param state A piece of data that persists in one session for a single user. Can be set at any point in a controls life cycle by calling 'setControlState' in the Mode interface.
      * @param container If a control is marked control-type='standard', it will receive an empty div element within which it can render its content.
      */
-    public init(context: ComponentFramework.Context<IInputs>, notifyOutputChanged: () => void, state: ComponentFramework.Dictionary, container:HTMLDivElement): void
+    public async init(context: ComponentFramework.Context<IInputs>, notifyOutputChanged: () => void, state: ComponentFramework.Dictionary, container:HTMLDivElement): Promise<void>
     {
-        // Add control initialization code
+        this.container = container;
+        const webResourceUrl = context.parameters.webResourceUrl.raw;
+
+        if (!webResourceUrl) {
+            console.error("No web resource URL provided");
+            return;
+        }
+
+        initialize({
+            modulePath: webResourceUrl, // Adjust the path as needed
+            importFunctionName: '__import__' // Adjust the function name as needed
+          });
+       
+        console.log(`Base path is ${webResourceUrl}`);
+
+        if (webResourceUrl !== null && webResourceUrl !== "") {
+            this.loadHtmlContent();
+            this.loadDotnetJs(webResourceUrl);
+        } else {
+            console.error("No web resource name provided");
+        }
+    }
+
+    private loadHtmlContent(): void {
+        const htmlContent = `
+            <div id="control-container">
+                <button id="reset" style="color:red">Reset</button>
+                <button id="pause" style="color:green">Pause</button>
+                <div id="output"></div>
+            </div>
+        `;
+        this.container.innerHTML = htmlContent;
+    }
+
+    private async loadDotnetJs(webResourceUrl: string): Promise<void> {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const windowInstance = window as any;
+        const module = await windowInstance.__import__(webResourceUrl);
+
+        if (typeof module.dotnet === "undefined") {
+            console.error("Dotnet instance is undefined");
+            return;
+        }
+
+        const { getAssemblyExports, getConfig, runMain } = module.dotnet
+            .withApplicationArguments("start")
+            .create();
+
+        console.log("Dotnet script initialized");
+        const config = getConfig();
+
+        console.log("Dotnet script config", config);
+        const exports = await getAssemblyExports(config.mainAssemblyName);
+
+        document.getElementById('reset')!.addEventListener('click', e => {
+            console.log("Resetting stopwatch");
+            exports.StopwatchSample.Reset();
+            e.preventDefault();
+        });
+
+        const pauseButton = document.getElementById('pause')!;
+        pauseButton.addEventListener('click', e => {
+            console.log("Toggling stopwatch");
+            const isRunning = exports.StopwatchSample.Toggle();
+            console.log("Stopwatch is running", isRunning);
+            pauseButton.innerText = isRunning ? 'Pause' : 'Start';
+            e.preventDefault();
+        });
+
+        await runMain();
     }
 
 
