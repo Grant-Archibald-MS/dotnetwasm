@@ -1,11 +1,9 @@
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
-import { initialize } from 'dynamic-import-polyfill';
-
-
 
 export class Stopwatch implements ComponentFramework.StandardControl<IInputs, IOutputs> {
 
     private container: HTMLDivElement;
+    private _context: ComponentFramework.Context<IInputs>
 
     /**
      * Empty constructor.
@@ -26,26 +24,68 @@ export class Stopwatch implements ComponentFramework.StandardControl<IInputs, IO
     public async init(context: ComponentFramework.Context<IInputs>, notifyOutputChanged: () => void, state: ComponentFramework.Dictionary, container:HTMLDivElement): Promise<void>
     {
         this.container = container;
-        const webResourceUrl = context.parameters.webResourceUrl.raw;
+        this._context = context;
+        this.loadHtmlContent();
 
-        if (!webResourceUrl) {
-            console.error("No web resource URL provided");
-            return;
+        // Query the record with name 'dotnet.js.gz' in the 'dev_name' field
+        const query = "?$filter=dev_name eq 'dotnet.js.gz'";
+        this._context.webAPI.retrieveMultipleRecords("dev_webassembly", query)
+            .then((result) => {
+                if (result.entities.length > 0) {
+                    // Record found, proceed to retrieve the dev_content column
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const id = result.entities[0]["dev_webassemblyid"];
+                    this.fetchFileContent(id);
+                } else {
+                    console.log("No record found with the specified name.");
+                }
+            })
+            .catch((error) => {
+                console.error(error.message);
+            });
+    }
+
+    private fetchFileContent(fileIdentifier: string): void {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const context: any = this._context;
+        const baseUrl = context.page.getClientUrl();
+        const url = `${baseUrl}/api/data/v9.2/dev_webassemblies(${fileIdentifier})/dev_content`;
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const fileContent = data.value;
+            this.decompressFileContent(fileContent);
+        })
+        .catch(error => {
+            console.error(error.message);
+        });
+    }
+
+    private async decompressFileContent(fileContent: string): Promise<void> {
+        const binaryString = atob(fileContent);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
         }
+        const blob = new Blob([bytes], { type: 'application/gzip' });
+        const ds = new DecompressionStream('gzip');
+        const decompressedStream = blob.stream().pipeThrough(ds);
+        const decompressedBlob = await new Response(decompressedStream).blob();
 
-        initialize({
-            modulePath: webResourceUrl, // Adjust the path as needed
-            importFunctionName: '__import__' // Adjust the function name as needed
-          });
+        // Convert the decompressed content to text
+        const decompressedTextContent = await decompressedBlob.text();
        
-        console.log(`Base path is ${webResourceUrl}`);
+        // Create a JSON Blob with the correct MIME type
+        const jsonBlob = new Blob([decompressedTextContent], { type: 'application/javascript' });  
 
-        if (webResourceUrl !== null && webResourceUrl !== "") {
-            this.loadHtmlContent();
-            this.loadDotnetJs(webResourceUrl);
-        } else {
-            console.error("No web resource name provided");
-        }
+        // Create a URL for the JSON Blob and pass it to loadDotnetJs
+        await this.loadDotnetJs(URL.createObjectURL(jsonBlob));
     }
 
     private loadHtmlContent(): void {
@@ -59,44 +99,49 @@ export class Stopwatch implements ComponentFramework.StandardControl<IInputs, IO
         this.container.innerHTML = htmlContent;
     }
 
-    private async loadDotnetJs(webResourceUrl: string): Promise<void> {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const windowInstance = window as any;
-        const module = await windowInstance.__import__(webResourceUrl);
+    private async loadDotnetJs(blobUrl: string): Promise<void> {    
+        try {
+            const module = await import(/* webpackIgnore: true */ blobUrl);
 
-        if (typeof module.dotnet === "undefined") {
-            console.error("Dotnet instance is undefined");
-            return;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (typeof module.dotnet === "undefined") {
+                console.error("Dotnet instance is undefined");
+                return;
+            }
+        
+            const { getAssemblyExports, getConfig, runMain } = module.dotnet
+                .withApplicationArguments("start")
+                .create();
+        
+            console.log("Dotnet script initialized");
+            const config = getConfig();
+        
+            console.log("Dotnet script config", config);
+            const exports = await getAssemblyExports(config.mainAssemblyName);
+        
+            document.getElementById('reset')!.addEventListener('click', e => {
+                console.log("Resetting stopwatch");
+                exports.StopwatchSample.Reset();
+                e.preventDefault();
+            });
+        
+            const pauseButton = document.getElementById('pause')!;
+            pauseButton.addEventListener('click', e => {
+                console.log("Toggling stopwatch");
+                const isRunning = exports.StopwatchSample.Toggle();
+                console.log("Stopwatch is running", isRunning);
+                pauseButton.innerText = isRunning ? 'Pause' : 'Start';
+                e.preventDefault();
+            });
+        
+            await runMain();
+        } catch (error) {
+            console.error("Error loading dotnet.js", error);
+        } finally {
+            // Revoke the Blob URL to free up memory
+            URL.revokeObjectURL(blobUrl);
         }
-
-        const { getAssemblyExports, getConfig, runMain } = module.dotnet
-            .withApplicationArguments("start")
-            .create();
-
-        console.log("Dotnet script initialized");
-        const config = getConfig();
-
-        console.log("Dotnet script config", config);
-        const exports = await getAssemblyExports(config.mainAssemblyName);
-
-        document.getElementById('reset')!.addEventListener('click', e => {
-            console.log("Resetting stopwatch");
-            exports.StopwatchSample.Reset();
-            e.preventDefault();
-        });
-
-        const pauseButton = document.getElementById('pause')!;
-        pauseButton.addEventListener('click', e => {
-            console.log("Toggling stopwatch");
-            const isRunning = exports.StopwatchSample.Toggle();
-            console.log("Stopwatch is running", isRunning);
-            pauseButton.innerText = isRunning ? 'Pause' : 'Start';
-            e.preventDefault();
-        });
-
-        await runMain();
     }
-
 
     /**
      * Called when any value in the property bag has changed. This includes field values, data-sets, global values such as container height and width, offline status, control metadata values such as label, visible, etc.
