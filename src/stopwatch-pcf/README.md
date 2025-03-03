@@ -68,7 +68,7 @@ The [DotNetWebAssembly_1_0_0_1.zip](./DotNetWebAssembly_1_0_0_1.zip) include a s
 
 3. Run the **Web Assembly Manager** Model-Driven App
 
-4. Create Dataverse records for the results of the **publish** folder of the [Stopwatch](../stopwatch/README.md) sample
+4. Create Dataverse records for the **\*.gz** files results of the **publish\wwwroot\_framework** folder of the [Stopwatch](../stopwatch/README.md) sample
 
   ![Sample Admin Screen with Stopwatch Web Assembly components loaded](./media/WebAssemblyAdmin.png)
 
