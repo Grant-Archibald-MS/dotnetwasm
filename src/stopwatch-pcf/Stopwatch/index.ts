@@ -44,13 +44,6 @@ export class Stopwatch implements ComponentFramework.StandardControl<IInputs, IO
         baseElement.href = this.baseUrl;
         document.head.appendChild(baseElement);
 
-        // const boot = await this.getFileIdentifer('blazor.boot.json.gz');
-        // const bootContent = await this.fetchFileFromWebApi(boot);
-        // const decompressedBootContent = await this.decompressFileContentText(bootContent);
-
-        // Query the record with name 'dotnet.js.gz' to boostrap the .Net WASM load process
-        // This process will then call blazor.boot.json to request manifest of files to download
-
         // TODO: Configuring the app to fetch and decode Brotli compressed files *.br not gz)
         const id = await this.getFileIdentifer('dotnet.js.gz');
         this.fetchDotNetJsContent(id);
