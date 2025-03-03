@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest>
-  <control namespace="WebAssembly" constructor="Stopwatch" version="1.26.0" display-name-key="Stopwatch" description-key="Stopwatch description" control-type="standard" >
+  <control namespace="WebAssembly" constructor="Stopwatch" version="1.44.0" display-name-key="Stopwatch" description-key="Stopwatch description" control-type="standard" >
     <external-service-usage enabled="false">
     </external-service-usage>
     <property name="webResourceUrl" display-name-key="Web_Resource_URL" description-key="Web_Resource_URL" of-type="SingleLine.Text" usage="bound" required="true" />
