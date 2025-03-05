@@ -1,6 +1,6 @@
 # Overview
 
-This sample aimes to demonstrate how to load a .Net Web Assembly stopwatch sample inside a PCF Control using Web Resources
+This sample aims to demonstrate how to load a .Net Web Assembly stopwatch sample inside a PCF Control using WebApi
 
 This sample was created using the following command
 

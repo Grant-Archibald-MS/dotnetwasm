@@ -45,7 +45,7 @@ Application Lifecycle Management (ALM) is crucial for managing your PCF componen
 2. **Build**: Use automated build tools to compile and package your component.
 3. **Deploy**: Deploy your component to different environments (e.g., development, testing, production) using deployment pipelines.
 
-## Pros and Cons of Web Resources vs. Web API and IndexedDB
+## Pros and Cons of Web Resources vs. Web API
 
 When it comes to storing Web Assembly components, you have a few options. Let's weigh the pros and cons:
 
@@ -57,16 +57,11 @@ When it comes to storing Web Assembly components, you have a few options. Let's 
 ## Impact of CSP and Updates
 
 Content Security Policy (CSP) is an important consideration when working with Web Assembly and PCF components. CSP helps protect your application from cross-site scripting (XSS) attacks by specifying which resources are allowed to be loaded. Make sure to configure your CSP settings correctly to avoid any security issues.
-
-## Mitigating CSP With IndexDB
-
-When using IndexedDB to load assemblies, it's important to ensure the integrity and security of the assemblies. Considering some strategies to mitigate the lack of CSP as discussed.
-
 ### Use Hashes from Manifests
 
 Generate cryptographic hashes (e.g., SHA-256) for each assembly file.
 Store these hashes in a manifest file inside the PCF control.
-When loading assemblies from IndexedDB, compare the hash of the loaded file with the hash in the manifest to ensure it hasn't been tampered with.
+When loading assemblies from WebApi, compare the hash of the loaded file with the hash in the manifest to ensure it hasn't been tampered with.
 
 ### Digital Signatures:
 
@@ -79,5 +74,5 @@ Although CSP might be limited, you can still use nonces for scripts included in 
 
 ### Regular Audits and Monitoring
 
-Regularly audit the contents of IndexedDB.
+Regularly audit the contents of WebApi store values.
 Implement monitoring to detect any unauthorized changes to the stored assemblies.
